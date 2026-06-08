@@ -119,8 +119,12 @@ Instructions:
    - Which other packages would become easier to test as a result, and roughly
      how many of their currently uncovered functions would be unlocked
 
-5. If a function cannot be meaningfully tested (OS boundary, log.Fatal with no
-   injection point, dead code), say so explicitly and explain why.
+5. Assume everything is testable given sufficient refactoring. If a function looks
+   hard to test, that is a signal to look for the right architectural change —
+   not a reason to give up. Even OS boundaries and fixed dependencies can be
+   wrapped behind an interface. If you genuinely cannot find a path to testing
+   something, describe what structural change upstream would unlock it rather
+   than declaring it untestable.
 
 Return your findings as a structured plan using this format:
 
@@ -130,8 +134,8 @@ estimated_functions_unlocked: <N direct> + <M cascade across other packages>
 functions:
   - name: <function>
     file: <file>:<line>
-    approach: <tests only | refactor required | untestable>
-    notes: <what tests to write, or what refactor is needed, or why it's untestable>
+    approach: <tests only | refactor required | blocked: <what upstream change would unlock this>>
+    notes: <what tests to write, or what refactor is needed, or what upstream change is required>
     cascade_packages: <list of other packages that become more testable, or "none">
 ---END PLAN---
 ```
@@ -145,6 +149,8 @@ After all research subagents complete, collect all `---PLAN---` blocks and proce
 Review all plans together before creating any implementation tasks. This is the most important step — decisions made here determine how much coverage this round actually moves.
 
 **Rank by estimated impact first.** Sum each plan's `estimated_functions_unlocked` (direct + cascade). Sort plans highest to lowest. The highest-impact work goes first — this is more important than any other ordering consideration.
+
+**Challenge any `blocked` items from prior rounds.** A function marked `blocked` in a previous round is not confirmed untestable — it means the research agent at the time couldn't find a path. Re-examine it now with the full set of plans in front of you. A cross-package refactor recommended elsewhere may be exactly what unlocks it. Only carry a `blocked` label forward if no plan in this round provides a credible path.
 
 **Look for cross-package refactor opportunities:** if multiple plans recommend similar structural changes (e.g. extracting the same dependency behind an interface), a single well-scoped refactor may resolve gaps in several packages at once. When you spot this, consolidate into one implementation task and re-estimate the combined impact.
 
@@ -198,17 +204,18 @@ Instructions:
      go tool cover -func=coverage.out | grep <package>
    Fix any compilation errors or test failures before reporting done.
 
-5. If you discover that the plan is not feasible as written — for example because
-   the proposed refactor would require changes beyond the described scope, or
-   because a function turns out to be untestable — stop and emit the ESCALATION
-   block below. Do not improvise a large unplanned refactor.
+5. Escalate only if the plan has a factual error (e.g. it references a type,
+   interface, or function that does not exist as described) or if implementing
+   it requires modifying packages not listed in the plan. Do not escalate
+   because the work is complex or unfamiliar — the plan was already researched
+   and the approach was already chosen. Your job is to execute it.
 
 ESCALATION format — output exactly this if needed:
 ---ESCALATION---
 task: <task name>
-issue: <what makes the plan infeasible>
-attempted: <what you tried>
-suggestion: <revised approach or question for the primary agent>
+issue: <factual error in the plan, or out-of-scope packages required>
+detail: <specific discrepancy between the plan and what you found in the code>
+suggestion: <correction or clarification needed from the primary agent>
 ---END ESCALATION---
 ```
 
@@ -221,10 +228,11 @@ After each implementation subagent, scan its output for `---ESCALATION---` block
 For each one:
 
 - Mark the task `blocked`
-- Use `AskUserQuestion` — present the full escalation: what the plan called for, what the subagent found, and its suggestion
-- **If the plan needs revision**: update the task description and dispatch a new subagent with the corrected plan
+- The escalation should only ever be about a factual error in the plan or out-of-scope packages — not about difficulty. If the subagent's escalation is about difficulty or unfamiliarity rather than a genuine plan error, reject it: update the task and redispatch with an explicit note that the agent must execute the plan as written.
+- **If the plan has a factual error**: correct the plan and redispatch to a new subagent
+- **If implementing requires out-of-scope packages**: expand the task scope to include those packages and redispatch
 - **If dead code should be deleted**: confirm with the user, delete it, mark complete
-- **If exclusion from coverage is warranted**: only accept for genuinely narrow cases (OS boundary, intentional panic path, generated glue code). Add a comment in the source explaining why, and note it in the final report
+- **Excluding code from coverage is a last resort**, not a standard resolution path. Only accept it after the corrected plan has been attempted and failed for a concrete structural reason.
 
 ---
 
