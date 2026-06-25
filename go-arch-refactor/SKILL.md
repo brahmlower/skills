@@ -116,29 +116,29 @@ version: 2
 workdir: .
 allow:
   depOnAnyVendor: false
+components:
+  feature-a:   { in: internal/<feature-a> }
+  feature-b:   { in: internal/<feature-b> }
+  persistence: { in: internal/persistence }
+  binary:      { in: cmd/<binary> }
 deps:
-  internal/<feature-a>:
-    mayDependOn: []
-  internal/<feature-b>:
-    mayDependOn:
-      - internal/<feature-a>
-  internal/persistence:
-    mayDependOn:
-      - internal/<feature-a>
-      - internal/<feature-b>
-  cmd/<binary>:
-    mayDependOn:
-      - internal/<feature-a>
-      - internal/<feature-b>
-      - internal/<feature-c>
+  feature-b:
+    mayDependOn: [feature-a]
+  persistence:
+    mayDependOn: [feature-a, feature-b]
+  binary:
+    anyVendorDeps: true
+    mayDependOn: [feature-a, feature-b, feature-c]
 ```
 
 Rules for generating the config:
-- List every package in `internal/` and every `cmd/<binary>` as a component
+- `components:` maps short names to package paths via `in:` — use the package's directory name as the component name
+- `deps:` uses those short names as keys, not package paths
 - `mayDependOn` lists only *direct* dependencies — do not list transitive ones
+- Leaf packages (no internal imports) are **omitted from `deps`** entirely — `mayDependOn: []` is invalid syntax and will error
+- Packages that import third-party vendors (cobra, viper, yaml, etc.) need `anyVendorDeps: true` — typically `cmd/<binary>` and any package that wraps an external library
 - Infrastructure packages (`config/`, `proxy/`, `migrations/`) are typically only imported by `cmd/` and other infrastructure — list them explicitly if feature packages need them
 - Sub-packages (adapters) inherit their parent's dependencies — you don't need to list them separately unless they have additional dependencies
-- `$std` and `$external` are implicitly allowed everywhere; only list them if you want to explicitly document it
 
 ### Step 5 — Write the Plan Document
 
@@ -162,7 +162,7 @@ Each phase ends with a validation step:
 ```
 go build ./...
 go test ./...
-go-arch-lint --config .go-arch-lint.yml
+go-arch-lint check --arch-file .go-arch-lint.yml
 ```
 
 The go-arch-lint check will fail until the phase introduces the packages it covers. That's expected. What is **not** acceptable is modifying the config to make it pass.
@@ -194,7 +194,7 @@ The refactor is complete when all of the following are checked off:
 
 - [ ] `go build ./...` passes with no errors
 - [ ] `go test ./...` passes with no failures
-- [ ] `go-arch-lint --config .go-arch-lint.yml` passes with zero violations
+- [ ] `go-arch-lint check --arch-file .go-arch-lint.yml` passes with zero violations
 - [ ] No package named after a layer (`domain`, `usecases`, `repository`, `handlers`, `services`, `models`) remains under `internal/`
 - [ ] Every `internal/` top-level package name describes a business capability or domain concept
 

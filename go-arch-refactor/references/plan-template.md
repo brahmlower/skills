@@ -59,7 +59,7 @@ internal/usecases
 - `actiongraph tree <package>` — show the full dependency tree for a package; useful for tracing why an unexpected package is being pulled in
 - `actiongraph graph --why <pkg-a> <pkg-b>` — explain the import path between two packages; useful when a dependency relationship seems wrong and you want to find where it originates
 - `go list -f '{{.ImportPath}} → {{join .Imports ", "}}' ./...` — flat list of all direct import relationships; good for constructing the diagram
-- `go-arch-lint --config .go-arch-lint.yml` — if a lint config already exists, running it against the current structure shows existing violations that confirm the import graph
+- `go-arch-lint check --arch-file .go-arch-lint.yml` — if a lint config already exists, running it against the current structure shows existing violations that confirm the import graph
 
 ---
 
@@ -143,26 +143,27 @@ version: 2
 workdir: .
 allow:
   depOnAnyVendor: false
+components:
+  feature-a:   { in: internal/<feature-a> }
+  feature-b:   { in: internal/<feature-b> }
+  persistence: { in: internal/persistence }
+  binary:      { in: cmd/<binary> }
 deps:
-  internal/<feature-a>:
-    mayDependOn: []
-  internal/<feature-b>:
-    mayDependOn:
-      - internal/<feature-a>
-  internal/persistence:
-    mayDependOn:
-      - internal/<feature-a>
-      - internal/<feature-b>
-  cmd/<binary>:
-    mayDependOn:
-      - internal/<feature-a>
-      - internal/<feature-b>
+  # Leaf packages (no internal imports) are omitted — mayDependOn: [] is invalid.
+  # Packages with vendor deps (cobra, viper, yaml, etc.) need anyVendorDeps: true.
+  feature-b:
+    mayDependOn: [feature-a]
+  persistence:
+    mayDependOn: [feature-a, feature-b]
+  binary:
+    anyVendorDeps: true
+    mayDependOn: [feature-a, feature-b]
 ```
 
 After writing the plan, also write this config to `.go-arch-lint.yml` in the project root.
 
 **Useful tools:**
-- `go-arch-lint --config .go-arch-lint.yml` — validate the config is syntactically correct and check what violations exist against the *current* structure (expected to be many; this is the baseline)
+- `go-arch-lint check --arch-file .go-arch-lint.yml` — validate the config is syntactically correct and check what violations exist against the *current* structure (expected to be many; this is the baseline)
 - `go list ./...` — verify all package paths used in the config actually exist in the module
 
 ---
@@ -174,7 +175,7 @@ Ordered phases. The rule: inner packages first, outer packages later. Format eac
 **Phase N — Description**
 - [ ] Specific task 1
 - [ ] Specific task 2
-- [ ] _Validate: `go build ./... && go test ./... && go-arch-lint --config .go-arch-lint.yml`_
+- [ ] _Validate: `go build ./... && go test ./... && go-arch-lint check --arch-file .go-arch-lint.yml`_
 
 Use checkbox format for tasks so implementors (human or agent) can track progress. The validate step is always a checkbox — it must be checked before the phase is considered done.
 
@@ -229,7 +230,7 @@ The refactor is complete when all of the following are checked off:
 
 - [ ] `go build ./...` passes with no errors
 - [ ] `go test ./...` passes with no failures
-- [ ] `go-arch-lint --config .go-arch-lint.yml` passes with zero violations
+- [ ] `go-arch-lint check --arch-file .go-arch-lint.yml` passes with zero violations
 - [ ] No package named after a layer (`domain`, `usecases`, `repository`, `handlers`, `services`, `models`) remains under `internal/`
 - [ ] Every `internal/` top-level package name describes a business capability or domain concept
 
