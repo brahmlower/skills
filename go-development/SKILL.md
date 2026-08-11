@@ -84,3 +84,4 @@ matters to callers.
 - [Options Pattern](options-pattern.md)
 - [Typed Nil in Interface](typed-nil-in-interface.md)
 - [Assert Errors in Tests with require.NoError](require-no-error-in-tests.md)
+- [Provider Pattern (Service Composition & Transactions)](provider-pattern.md)
