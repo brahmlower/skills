@@ -22,6 +22,9 @@ Fixes `golangci-lint` violations by grouping them by rule and delegating each gr
 ### `go-embedded-fs`
 Guidance for embedding files in a Go binary, covering both simple and overlayed filesystem approaches.
 
+### `go-oapi-codegen`
+Generates a Go client SDK from OpenAPI spec files using `oapi-codegen`, wired up as a `go.mod` tool dependency with `go:generate` directives. Covers package layout (one package per spec), keeping specs in a checked-in location, and the lint/arch-tooling gotchas generated code tends to trip.
+
 ## Installation
 
 Install all skills:
