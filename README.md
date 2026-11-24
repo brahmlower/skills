@@ -25,6 +25,9 @@ Guidance for embedding files in a Go binary, covering both simple and overlayed 
 ### `go-oapi-codegen`
 Generates a Go client SDK from OpenAPI spec files using `oapi-codegen`, wired up as a `go.mod` tool dependency with `go:generate` directives. Covers package layout (one package per spec), keeping specs in a checked-in location, and the lint/arch-tooling gotchas generated code tends to trip.
 
+### `bug-hunt`
+Multi-round bug review and research over a PR, branch, or Go package, run as a Claude Code workflow of subagents. Finds candidate bugs, dedupes them against existing GitHub issues, researches and independently verifies each one (high severity requires a failing test), follows related findings for up to 3 rounds, cross-references the fixes through shared contracts, and aligns their plans. Surfaces one final report and files issues only after human approval. Keeps the orchestrating agent's context small: results live in the workflow journal, read back on demand with `scripts/pull.sh`.
+
 ## Installation
 
 Install all skills:
